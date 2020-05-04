@@ -257,7 +257,7 @@ func (d *Datastore) QueryContext(ctx context.Context, q dsq.Query) (dsq.Results,
 			if err != nil {
 				return dsq.Result{Error: err}, false
 			}
-			entry := dsq.Entry{Key: key}
+			entry := dsq.Entry{Key: key, Value: data}
 			if q.ReturnsSizes {
 				entry.Size = len(data)
 			}

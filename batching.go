@@ -20,7 +20,7 @@ func (d *Datastore) Batch() (ds.Batch, error) {
 
 func (b *batch) Put(key ds.Key, value []byte) error {
 	sql := fmt.Sprintf("INSERT INTO %s (key, data) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET data = $2", b.ds.table)
-	b.batch.Queue(sql, key, value)
+	b.batch.Queue(sql, key.String(), value)
 	return nil
 }
 

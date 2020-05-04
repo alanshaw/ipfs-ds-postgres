@@ -18,8 +18,6 @@ type Datastore struct {
 	pool     *pgxpool.Pool
 }
 
-var _ ds.Datastore = (*Datastore)(nil)
-
 type rowQuerier interface {
 	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
 }
@@ -29,7 +27,7 @@ type execQuerier interface {
 }
 
 // NewDatastore creates a new PostgreSQL datastore
-func NewDatastore(connString string, options ...Option) (ds.Datastore, error) {
+func NewDatastore(connString string, options ...Option) (*Datastore, error) {
 	cfg := Options{}
 	cfg.Apply(append([]Option{OptionDefaults}, options...)...)
 
@@ -238,22 +236,31 @@ func (d *Datastore) QueryContext(ctx context.Context, q dsq.Query) (dsq.Results,
 			}
 
 			var key string
-			var out []byte
+			var size int
+			var data []byte
 
-			err := rows.Scan(&key, &out)
+			if q.KeysOnly && q.ReturnsSizes {
+				err := rows.Scan(&key, &size)
+				if err != nil {
+					return dsq.Result{Error: err}, false
+				}
+				return dsq.Result{Entry: dsq.Entry{Key: key, Size: size}}, true
+			} else if q.KeysOnly {
+				err := rows.Scan(&key)
+				if err != nil {
+					return dsq.Result{Error: err}, false
+				}
+				return dsq.Result{Entry: dsq.Entry{Key: key}}, true
+			}
+
+			err := rows.Scan(&key, &data)
 			if err != nil {
 				return dsq.Result{Error: err}, false
 			}
-
 			entry := dsq.Entry{Key: key}
-
-			if !q.KeysOnly {
-				entry.Value = out
-			}
 			if q.ReturnsSizes {
-				entry.Size = len(out)
+				entry.Size = len(data)
 			}
-
 			return dsq.Result{Entry: entry}, true
 		},
 		Close: func() error {
@@ -329,3 +336,5 @@ func (d *Datastore) GetSizeContext(ctx context.Context, key ds.Key) (int, error)
 		return -1, err
 	}
 }
+
+var _ ds.Datastore = (*Datastore)(nil)

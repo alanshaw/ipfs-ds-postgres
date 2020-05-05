@@ -38,22 +38,8 @@ func (b *batch) Commit() error {
 }
 
 func (b *batch) CommitContext(ctx context.Context) error {
-	var res pgx.BatchResults
-	var conn *pgx.Conn
-	var err error
-
-	if b.ds.pool != nil {
-		res = b.ds.pool.SendBatch(ctx, b.batch)
-		defer res.Close()
-	} else {
-		conn, err = pgx.ConnectConfig(ctx, b.ds.connConf)
-		if err != nil {
-			return err
-		}
-		res = conn.SendBatch(ctx, b.batch)
-		defer res.Close()
-		defer conn.Close(ctx)
-	}
+	res := b.ds.pool.SendBatch(ctx, b.batch)
+	defer res.Close()
 
 	for i := 0; i < b.batch.Len(); i++ {
 		_, err := res.Exec()

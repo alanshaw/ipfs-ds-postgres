@@ -9,7 +9,6 @@ import (
 
 	dstest "github.com/ipfs/go-datastore/test"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 var initOnce sync.Once
@@ -58,7 +57,7 @@ func initPG(t *testing.T) {
 //
 //  d, close := newDS(t)
 //  defer close()
-func newDS(t *testing.T, withPool bool) (*Datastore, func()) {
+func newDS(t *testing.T) (*Datastore, func()) {
 	initPG(t)
 	connString := fmt.Sprintf(
 		"postgres://%s:%s@%s/%s?sslmode=disable",
@@ -79,15 +78,7 @@ func newDS(t *testing.T, withPool bool) (*Datastore, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts := []Option{}
-	if withPool {
-		pool, err := pgxpool.Connect(context.Background(), connString)
-		if err != nil {
-			t.Fatal(err)
-		}
-		opts = append(opts, Pool(pool))
-	}
-	d, err := NewDatastore(connString, opts...)
+	d, err := NewDatastore(context.Background(), connString)
 	return d, func() {
 		_, _ = conn.Exec(context.Background(), "DROP TABLE IF EXISTS blocks")
 		_ = conn.Close(context.Background())
@@ -95,7 +86,7 @@ func newDS(t *testing.T, withPool bool) (*Datastore, func()) {
 }
 
 func TestSuite(t *testing.T) {
-	d, done := newDS(t, true)
+	d, done := newDS(t)
 	defer done()
 	dstest.SubtestAll(t, d)
 }

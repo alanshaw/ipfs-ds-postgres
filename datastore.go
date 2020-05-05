@@ -6,37 +6,27 @@ import (
 
 	ds "github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
-	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Datastore is a PostgreSQL backed datastore.
 type Datastore struct {
-	table    string
-	connConf *pgx.ConnConfig
-	pool     *pgxpool.Pool
-}
-
-type rowQuerier interface {
-	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
-}
-
-type execQuerier interface {
-	Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error)
+	table string
+	pool  *pgxpool.Pool
 }
 
 // NewDatastore creates a new PostgreSQL datastore
-func NewDatastore(connString string, options ...Option) (*Datastore, error) {
+func NewDatastore(ctx context.Context, connString string, options ...Option) (*Datastore, error) {
 	cfg := Options{}
 	cfg.Apply(append([]Option{OptionDefaults}, options...)...)
 
-	connConf, err := pgx.ParseConfig(connString)
+	pool, err := pgxpool.Connect(ctx, connString)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Datastore{table: cfg.Table, connConf: connConf, pool: cfg.Pool}, nil
+	return &Datastore{table: cfg.Table, pool: pool}, nil
 }
 
 // Close closes the underying PostgreSQL database.
@@ -55,24 +45,10 @@ func (d *Datastore) Delete(key ds.Key) error {
 // DeleteContext removes a row from the PostgreSQL database by the given key.
 func (d *Datastore) DeleteContext(ctx context.Context, key ds.Key) error {
 	sql := fmt.Sprintf("DELETE FROM %s WHERE key = $1", d.table)
-
-	var eq execQuerier
-	if d.pool != nil {
-		eq = d.pool
-	} else {
-		c, err := pgx.ConnectConfig(ctx, d.connConf)
-		if err != nil {
-			return err
-		}
-		defer c.Close(ctx)
-		eq = c
-	}
-
-	_, err := eq.Exec(ctx, sql, key.String())
+	_, err := d.pool.Exec(ctx, sql, key.String())
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -84,20 +60,7 @@ func (d *Datastore) Get(key ds.Key) (value []byte, err error) {
 // GetContext retrieves a value from the PostgreSQL database by the given key.
 func (d *Datastore) GetContext(ctx context.Context, key ds.Key) (value []byte, err error) {
 	sql := fmt.Sprintf("SELECT data FROM %s WHERE key = $1", d.table)
-
-	var rq rowQuerier
-	if d.pool != nil {
-		rq = d.pool
-	} else {
-		c, err := pgx.ConnectConfig(ctx, d.connConf)
-		if err != nil {
-			return nil, err
-		}
-		defer c.Close(ctx)
-		rq = c
-	}
-
-	row := rq.QueryRow(ctx, sql, key.String())
+	row := d.pool.QueryRow(ctx, sql, key.String())
 	var out []byte
 	switch err := row.Scan(&out); err {
 	case pgx.ErrNoRows:
@@ -117,20 +80,7 @@ func (d *Datastore) Has(key ds.Key) (bool, error) {
 // HasContext determines if a value for the given key exists in the PostgreSQL database.
 func (d *Datastore) HasContext(ctx context.Context, key ds.Key) (bool, error) {
 	sql := fmt.Sprintf("SELECT exists(SELECT 1 FROM %s WHERE key = $1)", d.table)
-
-	var rq rowQuerier
-	if d.pool != nil {
-		rq = d.pool
-	} else {
-		c, err := pgx.ConnectConfig(ctx, d.connConf)
-		if err != nil {
-			return false, err
-		}
-		defer c.Close(ctx)
-		rq = c
-	}
-
-	row := rq.QueryRow(ctx, sql, key.String())
+	row := d.pool.QueryRow(ctx, sql, key.String())
 	var exists bool
 	switch err := row.Scan(&exists); err {
 	case pgx.ErrNoRows:
@@ -150,24 +100,10 @@ func (d *Datastore) Put(key ds.Key, value []byte) error {
 // PutContext "upserts" a row into the PostgreSQL database.
 func (d *Datastore) PutContext(ctx context.Context, key ds.Key, value []byte) error {
 	sql := fmt.Sprintf("INSERT INTO %s (key, data) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET data = $2", d.table)
-
-	var eq execQuerier
-	if d.pool != nil {
-		eq = d.pool
-	} else {
-		c, err := pgx.ConnectConfig(ctx, d.connConf)
-		if err != nil {
-			return err
-		}
-		defer c.Close(ctx)
-		eq = c
-	}
-
-	_, err := eq.Exec(ctx, sql, key.String(), value)
+	_, err := d.pool.Exec(ctx, sql, key.String(), value)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -205,25 +141,9 @@ func (d *Datastore) QueryContext(ctx context.Context, q dsq.Query) (dsq.Results,
 		}
 	}
 
-	var conn *pgx.Conn
-	var rows pgx.Rows
-	var err error
-
-	if d.pool != nil {
-		rows, err = d.pool.Query(ctx, sql)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		conn, err = pgx.ConnectConfig(ctx, d.connConf)
-		if err != nil {
-			return nil, err
-		}
-
-		rows, err = conn.Query(ctx, sql)
-		if err != nil {
-			return nil, err
-		}
+	rows, err := d.pool.Query(ctx, sql)
+	if err != nil {
+		return nil, err
 	}
 
 	it := dsq.Iterator{
@@ -265,14 +185,6 @@ func (d *Datastore) QueryContext(ctx context.Context, q dsq.Query) (dsq.Results,
 		},
 		Close: func() error {
 			rows.Close()
-
-			if d.pool == nil {
-				err := conn.Close(ctx)
-				if err != nil {
-					return err
-				}
-			}
-
 			return nil
 		},
 	}
@@ -312,20 +224,7 @@ func (d *Datastore) GetSize(key ds.Key) (int, error) {
 // Returns -1 if not found or other error occurs.
 func (d *Datastore) GetSizeContext(ctx context.Context, key ds.Key) (int, error) {
 	sql := fmt.Sprintf("SELECT octet_length(data) FROM %s WHERE key = $1", d.table)
-
-	var rq rowQuerier
-	if d.pool != nil {
-		rq = d.pool
-	} else {
-		c, err := pgx.ConnectConfig(ctx, d.connConf)
-		if err != nil {
-			return -1, err
-		}
-		defer c.Close(ctx)
-		rq = c
-	}
-
-	row := rq.QueryRow(ctx, sql, key.String())
+	row := d.pool.QueryRow(ctx, sql, key.String())
 	var size int
 	switch err := row.Scan(&size); err {
 	case pgx.ErrNoRows:

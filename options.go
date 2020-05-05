@@ -2,14 +2,11 @@ package pgds
 
 import (
 	"fmt"
-
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Options are Datastore options
 type Options struct {
 	Table string
-	Pool  *pgxpool.Pool
 }
 
 // Option is the Datastore option type.
@@ -39,15 +36,6 @@ func Table(t string) Option {
 		if t != "" {
 			o.Table = t
 		}
-		return nil
-	}
-}
-
-// Pool configures the connection pool the datastore should use.
-// Defaults to no pool.
-func Pool(p *pgxpool.Pool) Option {
-	return func(o *Options) error {
-		o.Pool = p
 		return nil
 	}
 }

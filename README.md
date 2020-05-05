@@ -25,22 +25,19 @@ Ensure a database is created and a table exists that has the following structure
 CREATE TABLE IF NOT EXISTS %s (key TEXT NOT NULL UNIQUE, data BYTEA)
 ```
 
-### Basic
-
-The basic usage establishes a brand new connection for each datastore operation.
+Import and use in your application:
 
 ```go
 package main
 
 import (
 	"context"
-
 	pgds "github.com/alanshaw/ipfs-ds-postgres"
 )
 
 const (
 	connString = "postgresql://user:pass@host:12345/database?sslmode=require"
-  tableName  = "blocks" // (default)
+	tableName  = "blocks" // (default)
 )
 
 func main() {

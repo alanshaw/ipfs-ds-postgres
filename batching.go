@@ -19,14 +19,17 @@ func (d *Datastore) Batch() (ds.Batch, error) {
 }
 
 func (b *batch) Put(key ds.Key, value []byte) error {
+	b.batch.Queue("BEGIN")
 	sql := fmt.Sprintf("INSERT INTO %s (key, data) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET data = $2", b.ds.table)
 	b.batch.Queue(sql, key.String(), value)
+	b.batch.Queue("COMMIT")
 	return nil
 }
 
 func (b *batch) Delete(key ds.Key) error {
-	sql := fmt.Sprintf("DELETE FROM %s WHERE key = $1", b.ds.table)
-	b.batch.Queue(sql, key.String())
+	b.batch.Queue("BEGIN")
+	b.batch.Queue(fmt.Sprintf("DELETE FROM %s WHERE key = $1", b.ds.table), key.String())
+	b.batch.Queue("COMMIT")
 	return nil
 }
 

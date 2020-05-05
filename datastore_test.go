@@ -75,7 +75,7 @@ func newDS(t *testing.T, withPool bool) (*Datastore, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = conn.Exec(context.Background(), "CREATE TABLE IF NOT EXISTS blocks (key TEXT NOT NULL UNIQUE, data BYTEA NOT NULL)")
+	_, err = conn.Exec(context.Background(), "CREATE TABLE IF NOT EXISTS blocks (key TEXT NOT NULL UNIQUE, data BYTEA)")
 	if err != nil {
 		t.Fatal(err)
 	}

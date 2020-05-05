@@ -1,0 +1,64 @@
+# ipfs-ds-postgres
+
+[![Build Status](https://travis-ci.org/alanshaw/ipfs-ds-postgres.svg?branch=master)](https://travis-ci.org/alanshaw/ipfs-ds-postgres)
+[![Coverage](https://codecov.io/gh/alanshaw/ipfs-ds-postgres/branch/master/graph/badge.svg)](https://codecov.io/gh/alanshaw/ipfs-ds-postgres)
+[![Standard README](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
+[![GoDoc](http://img.shields.io/badge/godoc-reference-5272B4.svg)](https://godoc.org/github.com/alanshaw/ipfs-ds-postgres)
+[![golang version](https://img.shields.io/badge/golang-%3E%3D1.14.0-orange.svg)](https://golang.org/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/alanshaw/ipfs-ds-postgres)](https://goreportcard.com/report/github.com/alanshaw/ipfs-ds-postgres)
+
+> An implementation of [the datastore interface](https://github.com/ipfs/go-datastore) for PostgreSQL that uses the [pgx](https://github.com/jackc/pgx) PostgreSQL driver.
+
+**Note: Currently implements `Datastore` and `Batching` interfaces.**
+
+## Install
+
+```sh
+go get github.com/alanshaw/ipfs-ds-postgres
+```
+
+## Usage
+
+Ensure a database is created and a table exists that has the following structure:
+
+```sql
+CREATE TABLE IF NOT EXISTS %s (key TEXT NOT NULL UNIQUE, data BYTEA)
+```
+
+### Basic
+
+The basic usage establishes a brand new connection for each datastore operation.
+
+```go
+package main
+
+import (
+	"context"
+
+	pgds "github.com/alanshaw/ipfs-ds-postgres"
+)
+
+const (
+	connString = "postgresql://user:pass@host:12345/database?sslmode=require"
+  tableName  = "blocks" // (default)
+)
+
+func main() {
+	ds, err := pgds.NewDatastore(context.Background(), connString, pgds.Table(tableName))
+	if err != nil {
+		panic(err)
+	}
+}
+```
+
+## API
+
+[GoDoc Reference](https://godoc.org/github.com/alanshaw/ipfs-ds-postgres)
+
+## Contribute
+
+Feel free to dive in! [Open an issue](https://github.com/alanshaw/ipfs-ds-postgres/issues/new) or submit PRs.
+
+## License
+
+[MIT](LICENSE) © Alan Shaw

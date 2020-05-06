@@ -19,10 +19,16 @@ go get github.com/alanshaw/ipfs-ds-postgres
 
 ## Usage
 
-Ensure a database is created and a table exists that has the following structure:
+Ensure a database is created and a table exists that has the following structure (replacing `table_name` with the name of the table the datastore will use - by default this is `blocks`):
 
 ```sql
-CREATE TABLE IF NOT EXISTS %s (key TEXT NOT NULL UNIQUE, data BYTEA)
+CREATE TABLE IF NOT EXISTS table_name (key TEXT NOT NULL UNIQUE, data BYTEA)
+```
+
+It's recommended to create a `text_pattern_ops` index on the table:
+
+```sql
+CREATE INDEX IF NOT EXISTS table_name_key_text_pattern_ops_idx ON table_name (key text_pattern_ops)
 ```
 
 Import and use in your application:

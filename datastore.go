@@ -29,6 +29,11 @@ func NewDatastore(ctx context.Context, connString string, options ...Option) (*D
 	return &Datastore{table: cfg.Table, pool: pool}, nil
 }
 
+// PgxPool exposes the underlying pool of connections to Postgres.
+func (d *Datastore) PgxPool() *pgxpool.Pool {
+	return d.pool
+}
+
 // Close closes the underying PostgreSQL database.
 func (d *Datastore) Close() error {
 	if d.pool != nil {

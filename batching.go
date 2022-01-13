@@ -9,27 +9,21 @@ import (
 )
 
 type batch struct {
-	ds           *Datastore
-	batch        *pgx.Batch
-	maxBatchSize uint16
+	ds    *Datastore
+	batch *pgx.Batch
 }
 
 // Batch creates a set of deferred updates to the database.
 func (d *Datastore) Batch() (ds.Batch, error) {
-	b := &batch{ds: d, batch: &pgx.Batch{}, maxBatchSize: 0}
+	b := &batch{ds: d, batch: &pgx.Batch{}}
 	b.batch.Queue("BEGIN")
 	return b, nil
-}
-
-// Set the max batch size (0 or default means unlimited - the batch is only cleared when calling Commit)
-func (b *batch) SetMaxBatchSize(size uint16) {
-	b.maxBatchSize = size
 }
 
 func (b *batch) checkMaxBatchSize() error {
 	var err error
 
-	if b.maxBatchSize != 0 && b.batch.Len() >= int(b.maxBatchSize) {
+	if b.ds.maxBatchSize != 0 && b.batch.Len() >= int(b.ds.maxBatchSize) {
 		err = b.CommitContext(context.Background())
 	}
 

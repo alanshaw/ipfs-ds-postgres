@@ -20,7 +20,7 @@ func (d *Datastore) Batch() (ds.Batch, error) {
 	return b, nil
 }
 
-func (b *batch) checkMaxBatchSize() error {
+func (b *batch) commitIfBatchFull() error {
 	var err error
 
 	if b.ds.maxBatchSize != 0 && b.batch.Len() >= int(b.ds.maxBatchSize) {
@@ -37,12 +37,12 @@ func (b *batch) checkMaxBatchSize() error {
 func (b *batch) Put(key ds.Key, value []byte) error {
 	sql := fmt.Sprintf("INSERT INTO %s (key, data) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET data = $2", b.ds.table)
 	b.batch.Queue(sql, key.String(), value)
-	return b.checkMaxBatchSize()
+	return b.commitIfBatchFull()
 }
 
 func (b *batch) Delete(key ds.Key) error {
 	b.batch.Queue(fmt.Sprintf("DELETE FROM %s WHERE key = $1", b.ds.table), key.String())
-	return nil
+	return b.commitIfBatchFull()
 }
 
 func (b *batch) Commit() error {

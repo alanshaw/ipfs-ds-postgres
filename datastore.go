@@ -27,7 +27,7 @@ func NewDatastore(ctx context.Context, connString string, options ...Option) (*D
 		return nil, err
 	}
 
-	return &Datastore{table: cfg.Table, pool: pool, maxBatchSize: 0}, nil
+	return &Datastore{table: cfg.Table, pool: pool, maxBatchSize: cfg.MaxBatchSize}, nil
 }
 
 // PgxPool exposes the underlying pool of connections to Postgres.
@@ -240,11 +240,6 @@ func (d *Datastore) GetSizeContext(ctx context.Context, key ds.Key) (int, error)
 	default:
 		return -1, err
 	}
-}
-
-// MaxBatchSize sets the maximum number of updates that will be batched before committing. default or 0 means that the batch is only cleared when calling Commit.
-func (d *Datastore) SetMaxBatchSize(size uint16) {
-	d.maxBatchSize = size
 }
 
 var _ ds.Datastore = (*Datastore)(nil)

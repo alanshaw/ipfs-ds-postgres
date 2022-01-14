@@ -29,6 +29,7 @@ func (b *batch) commitIfBatchFull() error {
 
 	if err != nil {
 		b.batch = &pgx.Batch{}
+		b.batch.Queue("BEGIN")
 	}
 
 	return err

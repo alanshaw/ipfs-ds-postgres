@@ -12,8 +12,9 @@ import (
 
 // Datastore is a PostgreSQL backed datastore.
 type Datastore struct {
-	table string
-	pool  *pgxpool.Pool
+	table        string
+	pool         *pgxpool.Pool
+	maxBatchSize uint16
 }
 
 // NewDatastore creates a new PostgreSQL datastore
@@ -26,7 +27,7 @@ func NewDatastore(ctx context.Context, connString string, options ...Option) (*D
 		return nil, err
 	}
 
-	return &Datastore{table: cfg.Table, pool: pool}, nil
+	return &Datastore{table: cfg.Table, pool: pool, maxBatchSize: cfg.MaxBatchSize}, nil
 }
 
 // PgxPool exposes the underlying pool of connections to Postgres.

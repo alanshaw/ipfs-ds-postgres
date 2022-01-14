@@ -54,6 +54,16 @@ func main() {
 }
 ```
 
+## Running the tests
+
+For running the tests you will need a Postgres database listening on localhost. The easiest way of getting one is by using Docker:
+
+``` sh
+docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:11.14-alpine &
+```
+
+Running the full test suite will take a long time, so you will have to run `go test -timeout 60m`
+
 ## API
 
 [GoDoc Reference](https://godoc.org/github.com/alanshaw/ipfs-ds-postgres)

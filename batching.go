@@ -15,22 +15,35 @@ type batch struct {
 
 // Batch creates a set of deferred updates to the database.
 func (d *Datastore) Batch() (ds.Batch, error) {
-	return &batch{ds: d, batch: &pgx.Batch{}}, nil
+	b := &batch{ds: d, batch: &pgx.Batch{}}
+	b.batch.Queue("BEGIN")
+	return b, nil
+}
+
+func (b *batch) commitIfBatchFull() error {
+	var err error
+
+	if b.ds.maxBatchSize != 0 && b.batch.Len() >= int(b.ds.maxBatchSize) {
+		err = b.CommitContext(context.Background())
+	}
+
+	if err != nil {
+		b.batch = &pgx.Batch{}
+		b.batch.Queue("BEGIN")
+	}
+
+	return err
 }
 
 func (b *batch) Put(key ds.Key, value []byte) error {
-	b.batch.Queue("BEGIN")
 	sql := fmt.Sprintf("INSERT INTO %s (key, data) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET data = $2", b.ds.table)
 	b.batch.Queue(sql, key.String(), value)
-	b.batch.Queue("COMMIT")
-	return nil
+	return b.commitIfBatchFull()
 }
 
 func (b *batch) Delete(key ds.Key) error {
-	b.batch.Queue("BEGIN")
 	b.batch.Queue(fmt.Sprintf("DELETE FROM %s WHERE key = $1", b.ds.table), key.String())
-	b.batch.Queue("COMMIT")
-	return nil
+	return b.commitIfBatchFull()
 }
 
 func (b *batch) Commit() error {
@@ -38,6 +51,7 @@ func (b *batch) Commit() error {
 }
 
 func (b *batch) CommitContext(ctx context.Context) error {
+	b.batch.Queue("COMMIT")
 	res := b.ds.pool.SendBatch(ctx, b.batch)
 	defer res.Close()
 
